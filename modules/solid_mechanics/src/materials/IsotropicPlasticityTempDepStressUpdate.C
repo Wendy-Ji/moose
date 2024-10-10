@@ -28,8 +28,12 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::validParams()
   params.addParam<FunctionName>("yield_stress_function",
                                 "Yield stress as a function of temperature");
   params.addParam<Real>("yield_stress", "The point at which plastic strain begins accumulating");
-  params.addParam<FunctionName>("hardening_function",
-                                "True stress as a function of plastic strain");
+  // params.addParam<FunctionName>("hardening_function",
+  //                               "True stress as a function of plastic strain");
+  params.addParam<std::vector<FunctionName>>("hardening_function_list",
+                                "Vectors of stress vs strain hardening slopes");
+  params.addParam<std::vector<Real>>("hardening_temps",
+                                "Temperatures for hardening slopes");
   params.addParam<Real>("hardening_constant", "Hardening slope");
   params.addCoupledVar("temperature", 0.0, "Coupled Temperature");
   params.addDeprecatedParam<std::string>(
@@ -55,9 +59,11 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::IsotropicPlasticityTempDepSt
     _hardening_constant(this->isParamValid("hardening_constant")
                             ? this->template getParam<Real>("hardening_constant")
                             : 0),
-    _hardening_function(this->isParamValid("hardening_function")
-                            ? &this->getFunction("hardening_function")
-                            : nullptr),
+    // _hardening_function(this->isParamValid("hardening_function")
+    //                         ? &this->getFunction("hardening_function")
+    //                         : nullptr), 
+    _hardening_function_list(this->template getParam<std::vector<FunctionName>>("hardening_function_list")),
+    _hardening_temps(this->template getParam<std::vector<Real>>("hardening_temps")),
     _yield_condition(-1.0), // set to a non-physical value to catch uninitalized yield condition
     _hardening_slope(0.0),
     _plastic_strain(this->template declareGenericProperty<RankTwoTensor, is_ad>(
@@ -76,12 +82,26 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::IsotropicPlasticityTempDepSt
   // Both of these parameters are given default values by derived classes, which makes them valid
   if (_yield_stress_function == nullptr && !this->isParamValid("yield_stress"))
     mooseError("Either yield_stress or yield_stress_function must be given");
-  if (!parameters.isParamValid("hardening_constant") && !this->isParamValid("hardening_function"))
-    mooseError("Either hardening_constant or hardening_function must be defined");
+  // if (!parameters.isParamValid("hardening_constant") && !this->isParamValid("hardening_function"))
+  //   mooseError("Either hardening_constant or hardening_function must be defined");
 
-  if (parameters.isParamSetByUser("hardening_constant") && this->isParamValid("hardening_function"))
-    mooseError(
-        "Only the hardening_constant or only the hardening_function can be defined but not both");
+  // if (parameters.isParamSetByUser("hardening_constant") && this->isParamValid("hardening_function"))
+  //   mooseError(
+  //       "Only the hardening_constant or only the hardening_function can be defined but not both");
+  unsigned int num_hardening_funcs = _hardening_function_list.size();
+  unsigned int num_hardening_temps = _hardening_temps.size();
+  if (num_hardening_funcs != num_hardening_temps)
+    mooseError("Number of hardening_function_list (",
+               num_hardening_funcs,
+               ") must match the number of hardening_temps (",
+               num_hardening_temps,
+               ") for the hardening slopes.");
+  
+  _hardening_functions.resize(num_hardening_funcs);
+  for (unsigned int i = 0; i < num_hardening_funcs; i++)
+  {
+    _hardening_functions[i] = &this->getFunctionByName(_hardening_function_list[i]);
+  }
 }
 
 template <bool is_ad>
@@ -171,11 +191,18 @@ GenericReal<is_ad>
 IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::computeHardeningValue(
     const GenericReal<is_ad> & scalar)
 {
-  if (_hardening_function)
+  // if (_hardening_function)
+  // {
+  //   const Real strain_old = this->_effective_inelastic_strain_old[_qp];
+  //   return _hardening_function->value(strain_old + scalar) - _yield_stress;
+  // }
+  
+  if (_hardening_functions[0])
   {
     const Real strain_old = this->_effective_inelastic_strain_old[_qp];
-    return _hardening_function->value(strain_old + scalar) - _yield_stress;
+    return _hardening_functions[0]->value(strain_old + scalar) - _yield_stress;
   }
+
 
   return _hardening_variable_old[_qp] + _hardening_slope * scalar;
 }
@@ -185,10 +212,15 @@ GenericReal<is_ad>
 IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::computeHardeningDerivative(
     const GenericReal<is_ad> & /*scalar*/)
 {
-  if (_hardening_function)
+  // if (_hardening_function)
+  // {
+  //   const Real strain_old = this->_effective_inelastic_strain_old[_qp];
+  //   return _hardening_function->timeDerivative(strain_old);
+  // }
+  if (_hardening_functions[0])
   {
     const Real strain_old = this->_effective_inelastic_strain_old[_qp];
-    return _hardening_function->timeDerivative(strain_old);
+    return _hardening_functions[0]->timeDerivative(strain_old);
   }
 
   return _hardening_constant;

@@ -71,7 +71,11 @@ protected:
   const Function * _yield_stress_function;
   GenericReal<is_ad> _yield_stress;
   const Real _hardening_constant;
-  const Function * const _hardening_function;
+  // const Function * const _hardening_function;
+  std::vector<FunctionName> _hardening_function_list;
+  std::vector<const Function *> _hardening_functions;
+  std::vector<Real> _hardening_temps;
+
 
   GenericReal<is_ad> _yield_condition;
   GenericReal<is_ad> _hardening_slope;
