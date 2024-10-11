@@ -200,7 +200,10 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::computeHardeningValue(
   if (_hardening_functions[0])
   {
     const Real strain_old = this->_effective_inelastic_strain_old[_qp];
-    return _hardening_functions[0]->value(strain_old + scalar) - _yield_stress;
+    if (_temperature[_qp] < _hardening_temps[0])
+      return _hardening_functions[0]->value(strain_old + scalar) - _yield_stress;
+    else if (_temperature[_qp] >= _hardening_temps[-1])
+      return _hardening_functions[-1]->value(strain_old + scalar) - _yield_stress;
   }
 
 
@@ -220,7 +223,10 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::computeHardeningDerivative(
   if (_hardening_functions[0])
   {
     const Real strain_old = this->_effective_inelastic_strain_old[_qp];
-    return _hardening_functions[0]->timeDerivative(strain_old);
+    if (_temperature[_qp] < _hardening_temps[0])
+      return _hardening_functions[0]->timeDerivative(strain_old);
+    else if (_temperature[_qp] >= _hardening_temps[-1])
+      return _hardening_functions[-1]->timeDerivative(strain_old);
   }
 
   return _hardening_constant;
