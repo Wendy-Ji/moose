@@ -200,12 +200,20 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::computeHardeningValue(
   if (_hardening_functions[0])
   {
     const Real strain_old = this->_effective_inelastic_strain_old[_qp];
+    
     if (_temperature[_qp] < _hardening_temps[0])
       return _hardening_functions[0]->value(strain_old + scalar) - _yield_stress;
-    else if (_temperature[_qp] >= _hardening_temps[-1])
-      return _hardening_functions[-1]->value(strain_old + scalar) - _yield_stress;
+    else if (_temperature[_qp] >= _hardening_temps[_hardening_temps.size()-1])
+      return _hardening_functions[_hardening_temps.size()-1]->value(strain_old + scalar) - _yield_stress;
+    else
+    {
+      for (unsigned int i = 0; i < _hardening_temps.size(); i++)
+      {
+        if (_temperature[_qp] >= _hardening_temps[i] && _temperature[_qp] < _hardening_temps[i+1])
+          return _hardening_functions[i]->value(strain_old + scalar) - _yield_stress + (_temperature[_qp] - _hardening_temps[i]) * (_hardening_functions[i+1]->value(strain_old + scalar) - _hardening_functions[i]->value(strain_old + scalar)) / (_hardening_temps[i+1] - _hardening_temps[i]);
+      }
+    }
   }
-
 
   return _hardening_variable_old[_qp] + _hardening_slope * scalar;
 }
@@ -220,13 +228,23 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::computeHardeningDerivative(
   //   const Real strain_old = this->_effective_inelastic_strain_old[_qp];
   //   return _hardening_function->timeDerivative(strain_old);
   // }
+  
   if (_hardening_functions[0])
   {
     const Real strain_old = this->_effective_inelastic_strain_old[_qp];
+
     if (_temperature[_qp] < _hardening_temps[0])
       return _hardening_functions[0]->timeDerivative(strain_old);
-    else if (_temperature[_qp] >= _hardening_temps[-1])
-      return _hardening_functions[-1]->timeDerivative(strain_old);
+    else if (_temperature[_qp] >= _hardening_temps[_hardening_temps.size()-1])
+      return _hardening_functions[_hardening_temps.size()-1]->timeDerivative(strain_old);
+    else
+    {
+      for (unsigned int i = 0; i < _hardening_temps.size(); i++)
+      {
+        if (_temperature[_qp] >= _hardening_temps[i] && _temperature[_qp] < _hardening_temps[i+1])
+          return _hardening_functions[i]->timeDerivative(strain_old) + (_temperature[_qp] - _hardening_temps[i]) * (_hardening_functions[i+1]->timeDerivative(strain_old) - _hardening_functions[i]->timeDerivative(strain_old)) / (_hardening_temps[i+1] - _hardening_temps[i]);
+      }
+    }
   }
 
   return _hardening_constant;
