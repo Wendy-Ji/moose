@@ -9,18 +9,24 @@
 
 #pragma once
 
-#include "RadialReturnStressUpdate.h"
+#include "RadialReturnAnnealStressUpdate.h"
+// #include "Material.h"
+#include "LinearInterpolation.h"
+// #include "DerivativeMaterialPropertyNameInterface.h"
+// #include "InputParameters.h"
+// #include "MooseTypes.h"
+// #include "DerivativeMaterialInterface.h"
 
 /**
  * This class uses the Discrete material in a radial return isotropic plasticity
  * model.  This class is one of the basic radial return constitutive models;
  * more complex constitutive models combine creep and plasticity.
  *
- * This class inherits from RadialReturnStressUpdate and must be used
+ * This class inherits from RadialReturnAnnealStressUpdate and must be used
  * in conjunction with ComputeReturnMappingStress.  This class calculates
  * an effective trial stress, an effective scalar plastic strain
  * increment, and the derivative of the scalar effective plastic strain increment;
- * these values are passed to the RadialReturnStressUpdate to compute
+ * these values are passed to the RadialReturnAnnealStressUpdate to compute
  * the radial return stress increment.  This isotropic plasticity class also
  * computes the plastic strain as a stateful material property.
  *
@@ -30,7 +36,7 @@
  */
 
 template <bool is_ad>
-class IsotropicPlasticityTempDepStressUpdateTempl : public RadialReturnStressUpdateTempl<is_ad>
+class IsotropicPlasticityTempDepStressUpdateTempl : public RadialReturnAnnealStressUpdateTempl<is_ad>
 {
 public:
   static InputParameters validParams();
@@ -38,8 +44,8 @@ public:
   IsotropicPlasticityTempDepStressUpdateTempl(const InputParameters & parameters);
 
   using Material::_qp;
-  using RadialReturnStressUpdateTempl<is_ad>::_base_name;
-  using RadialReturnStressUpdateTempl<is_ad>::_three_shear_modulus;
+  using RadialReturnAnnealStressUpdateTempl<is_ad>::_base_name;
+  using RadialReturnAnnealStressUpdateTempl<is_ad>::_three_shear_modulus;
 
   virtual void
   computeStressInitialize(const GenericReal<is_ad> & effective_trial_stress,
@@ -76,6 +82,9 @@ protected:
   std::vector<const Function *> _hardening_functions;
   std::vector<Real> _hardening_temps;
 
+  // annealing
+  // const bool _annealing;
+  // const Real _critical_temperature;
 
   GenericReal<is_ad> _yield_condition;
   GenericReal<is_ad> _hardening_slope;
@@ -89,6 +98,10 @@ protected:
   GenericMaterialProperty<Real, is_ad> & _hardening_variable;
   const MaterialProperty<Real> & _hardening_variable_old;
   const GenericVariableValue<is_ad> & _temperature;
+
+  // linear interpolation
+  const bool _extrap;
+  std::unique_ptr<LinearInterpolation> _linear_interp;
 };
 
 typedef IsotropicPlasticityTempDepStressUpdateTempl<false> IsotropicPlasticityTempDepStressUpdate;

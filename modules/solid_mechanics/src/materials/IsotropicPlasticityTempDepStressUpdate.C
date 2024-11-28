@@ -12,6 +12,9 @@
 #include "Function.h"
 #include "ElasticityTensorTools.h"
 
+// #include "MooseVariableFE.h"
+#include "PiecewiseLinear.h"
+
 registerMooseObject("SolidMechanicsApp", ADIsotropicPlasticityTempDepStressUpdate);
 registerMooseObject("SolidMechanicsApp", IsotropicPlasticityTempDepStressUpdate);
 
@@ -19,7 +22,7 @@ template <bool is_ad>
 InputParameters
 IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::validParams()
 {
-  InputParameters params = RadialReturnStressUpdateTempl<is_ad>::validParams();
+  InputParameters params = RadialReturnAnnealStressUpdateTempl<is_ad>::validParams();
   params.addClassDescription("This class uses the discrete material in a radial return isotropic "
                              "plasticity model.  This class is one of the basic radial return "
                              "constitutive models, yet it can be used in conjunction with other "
@@ -34,6 +37,8 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::validParams()
                                 "Vectors of stress vs strain hardening slopes");
   params.addParam<std::vector<Real>>("hardening_temps",
                                 "Temperatures for hardening slopes");
+  // params.addParam<bool>("annealing",false,"Whether to anneal");
+  // params.addParam<Real>("critical_temperature",1323.15,"Critical temperature for annealing");
   params.addParam<Real>("hardening_constant", "Hardening slope");
   params.addCoupledVar("temperature", 0.0, "Coupled Temperature");
   params.addDeprecatedParam<std::string>(
@@ -43,13 +48,18 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::validParams()
       "This has been replaced by the 'base_name' parameter");
   params.set<std::string>("effective_inelastic_strain_name") = "effective_plastic_strain";
 
+  //linear interpolation
+  params.addParam<bool>(
+      "extrapolation",
+      "Use linear extrapolation to evaluate points that lie outside given data set domain. ");
+
   return params;
 }
 
 template <bool is_ad>
 IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::IsotropicPlasticityTempDepStressUpdateTempl(
     const InputParameters & parameters)
-  : RadialReturnStressUpdateTempl<is_ad>(parameters),
+  : RadialReturnAnnealStressUpdateTempl<is_ad>(parameters),
     _plastic_prepend(this->template getParam<std::string>("plastic_prepend")),
     _yield_stress_function(this->isParamValid("yield_stress_function")
                                ? &this->getFunction("yield_stress_function")
@@ -64,6 +74,8 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::IsotropicPlasticityTempDepSt
     //                         : nullptr), 
     _hardening_function_list(this->template getParam<std::vector<FunctionName>>("hardening_function_list")),
     _hardening_temps(this->template getParam<std::vector<Real>>("hardening_temps")),
+    // _annealing(this->template getParam<bool>("annealing")),
+    // _critical_temperature(this->template getParam<Real>("critical_temperature")),
     _yield_condition(-1.0), // set to a non-physical value to catch uninitalized yield condition
     _hardening_slope(0.0),
     _plastic_strain(this->template declareGenericProperty<RankTwoTensor, is_ad>(
@@ -74,7 +86,11 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::IsotropicPlasticityTempDepSt
         this->template declareGenericProperty<Real, is_ad>(_base_name + "hardening_variable")),
     _hardening_variable_old(
         this->template getMaterialPropertyOld<Real>(_base_name + "hardening_variable")),
-    _temperature(this->template coupledGenericValue<is_ad>("temperature"))
+    _temperature(this->template coupledGenericValue<is_ad>("temperature")),
+    // linear interpolation
+    _extrap(this->isParamValid("extrapolation")
+                            ? this->template getParam<bool>("extrapolation")
+                            : false)
 {
   if (parameters.isParamSetByUser("yield_stress") && _yield_stress <= 0.0)
     mooseError("Yield stress must be greater than zero");
@@ -119,7 +135,7 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::propagateQpStatefulPropertie
   _hardening_variable[_qp] = _hardening_variable_old[_qp];
   _plastic_strain[_qp] = _plastic_strain_old[_qp];
 
-  RadialReturnStressUpdateTempl<is_ad>::propagateQpStatefulPropertiesRadialReturn();
+  RadialReturnAnnealStressUpdateTempl<is_ad>::propagateQpStatefulPropertiesRadialReturn();
 }
 
 template <bool is_ad>
@@ -128,7 +144,7 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::computeStressInitialize(
     const GenericReal<is_ad> & effective_trial_stress,
     const GenericRankFourTensor<is_ad> & elasticity_tensor)
 {
-  RadialReturnStressUpdateTempl<is_ad>::computeStressInitialize(effective_trial_stress,
+  RadialReturnAnnealStressUpdateTempl<is_ad>::computeStressInitialize(effective_trial_stress,
                                                                 elasticity_tensor);
 
   computeYieldStress(elasticity_tensor);
@@ -197,25 +213,39 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::computeHardeningValue(
   //   return _hardening_function->value(strain_old + scalar) - _yield_stress;
   // }
   
-  if (_hardening_functions[0])
+  // if (_hardening_functions[0])
+  // {
+    // if (_temperature[_qp] < _hardening_temps[0])
+    //   return _hardening_functions[0]->value(strain_old + scalar) - _yield_stress;
+    // else if (_temperature[_qp] >= _hardening_temps[_hardening_temps.size()-1])
+    //   return _hardening_functions[_hardening_temps.size()-1]->value(strain_old + scalar) - _yield_stress;
+    // else
+    // {
+    //   for (unsigned int i = 0; i < _hardening_temps.size()-1; i++)
+    //   {
+    //     if (_temperature[_qp] >= _hardening_temps[i] && _temperature[_qp] < _hardening_temps[i+1])
+    //       return _hardening_functions[i]->value(strain_old + scalar) - _yield_stress + (_temperature[_qp] - _hardening_temps[i]) * (_hardening_functions[i+1]->value(strain_old + scalar) - _hardening_functions[i]->value(strain_old + scalar)) / (_hardening_temps[i+1] - _hardening_temps[i]);
+    //       // return _hardening_functions[i]->value(strain_old + scalar) - _yield_stress;
+    //   }
+    // }
+  // }
+
+  // mooseError("?");
+  // return 5;
+
+  // return _hardening_variable_old[_qp] + _hardening_slope * scalar;
+
+  const Real strain_old = this->_effective_inelastic_strain_old[_qp];
+
+  std::vector<Real> temps = _hardening_temps;
+  std::vector<Real> values;
+  for (unsigned int i = 0; i < _hardening_functions.size(); i++)
   {
-    const Real strain_old = this->_effective_inelastic_strain_old[_qp];
-    
-    if (_temperature[_qp] < _hardening_temps[0])
-      return _hardening_functions[0]->value(strain_old + scalar) - _yield_stress;
-    else if (_temperature[_qp] >= _hardening_temps[_hardening_temps.size()-1])
-      return _hardening_functions[_hardening_temps.size()-1]->value(strain_old + scalar) - _yield_stress;
-    else
-    {
-      for (unsigned int i = 0; i < _hardening_temps.size(); i++)
-      {
-        if (_temperature[_qp] >= _hardening_temps[i] && _temperature[_qp] < _hardening_temps[i+1])
-          return _hardening_functions[i]->value(strain_old + scalar) - _yield_stress + (_temperature[_qp] - _hardening_temps[i]) * (_hardening_functions[i+1]->value(strain_old + scalar) - _hardening_functions[i]->value(strain_old + scalar)) / (_hardening_temps[i+1] - _hardening_temps[i]);
-      }
-    }
+    values.push_back(_hardening_functions[i]->value(strain_old + scalar));
   }
 
-  return _hardening_variable_old[_qp] + _hardening_slope * scalar;
+  _linear_interp = std::make_unique<LinearInterpolation>(temps, values, _extrap);
+  return _linear_interp->sample(_temperature[_qp]) - _yield_stress;
 }
 
 template <bool is_ad>
@@ -239,15 +269,17 @@ IsotropicPlasticityTempDepStressUpdateTempl<is_ad>::computeHardeningDerivative(
       return _hardening_functions[_hardening_temps.size()-1]->timeDerivative(strain_old);
     else
     {
-      for (unsigned int i = 0; i < _hardening_temps.size(); i++)
+      for (unsigned int i = 0; i < _hardening_temps.size()-1; i++)
       {
         if (_temperature[_qp] >= _hardening_temps[i] && _temperature[_qp] < _hardening_temps[i+1])
           return _hardening_functions[i]->timeDerivative(strain_old) + (_temperature[_qp] - _hardening_temps[i]) * (_hardening_functions[i+1]->timeDerivative(strain_old) - _hardening_functions[i]->timeDerivative(strain_old)) / (_hardening_temps[i+1] - _hardening_temps[i]);
+          // return _hardening_functions[i]->timeDerivative(strain_old);
       }
     }
   }
-
-  return _hardening_constant;
+  mooseError("?");
+  return 5;
+  // return _hardening_constant;
 }
 
 template <bool is_ad>

@@ -8,14 +8,14 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#include "RadialReturnStressUpdate.h"
+#include "RadialReturnAnnealStressUpdate.h"
 
 #include "MooseMesh.h"
 #include "ElasticityTensorTools.h"
 
 template <bool is_ad>
 InputParameters
-RadialReturnStressUpdateTempl<is_ad>::validParams()
+RadialReturnAnnealStressUpdateTempl<is_ad>::validParams()
 {
   InputParameters params = StressUpdateBaseTempl<is_ad>::validParams();
   params.addClassDescription("Calculates the effective inelastic strain increment required to "
@@ -66,11 +66,15 @@ RadialReturnStressUpdateTempl<is_ad>::validParams()
   params.addParam<unsigned>("maximum_number_substeps",
                             25,
                             "The maximum number of substeps allowed before cutting the time step.");
+  params.addCoupledVar("temperature", 0.0, "Coupled Temperature");
+  params.addParam<bool>("anneal", false, "Whether to anenal effective_inelastic_strain");
+  params.addParam<Real>("crit_temp", 1e6, "Critical temperature for annealing");
+  params.addParam<Real>("anneal_rate", 0.5, "Annealing rate");
   return params;
 }
 
 template <bool is_ad>
-RadialReturnStressUpdateTempl<is_ad>::RadialReturnStressUpdateTempl(
+RadialReturnAnnealStressUpdateTempl<is_ad>::RadialReturnAnnealStressUpdateTempl(
     const InputParameters & parameters)
   : StressUpdateBaseTempl<is_ad>(parameters),
     SingleVariableReturnMappingSolutionTempl<is_ad>(parameters),
@@ -90,7 +94,11 @@ RadialReturnStressUpdateTempl<is_ad>::RadialReturnStressUpdateTempl(
     _use_substepping(
         this->template getParam<MooseEnum>("use_substepping").template getEnum<SubsteppingType>()),
     _adaptive_substepping(this->template getParam<bool>("adaptive_substepping")),
-    _maximum_number_substeps(this->template getParam<unsigned>("maximum_number_substeps"))
+    _maximum_number_substeps(this->template getParam<unsigned>("maximum_number_substeps")),
+    _temperature(this->template coupledGenericValue<is_ad>("temperature")),
+    _anneal(this->template getParam<bool>("anneal")),
+    _crit_temp(this->template getParam<Real>("crit_temp")),
+    _anneal_rate(this->template getParam<Real>("anneal_rate"))
 {
   if (this->_pars.isParamSetByUser("use_substep"))
   {
@@ -123,14 +131,14 @@ RadialReturnStressUpdateTempl<is_ad>::RadialReturnStressUpdateTempl(
 
 template <bool is_ad>
 void
-RadialReturnStressUpdateTempl<is_ad>::initQpStatefulProperties()
+RadialReturnAnnealStressUpdateTempl<is_ad>::initQpStatefulProperties()
 {
   _effective_inelastic_strain[_qp] = 0.0;
 }
 
 template <bool is_ad>
 void
-RadialReturnStressUpdateTempl<is_ad>::computeStressInitialize(
+RadialReturnAnnealStressUpdateTempl<is_ad>::computeStressInitialize(
     const GenericReal<is_ad> & /*effective_trial_stress*/,
     const GenericRankFourTensor<is_ad> & elasticity_tensor)
 {
@@ -140,14 +148,14 @@ RadialReturnStressUpdateTempl<is_ad>::computeStressInitialize(
 
 template <bool is_ad>
 void
-RadialReturnStressUpdateTempl<is_ad>::propagateQpStatefulPropertiesRadialReturn()
+RadialReturnAnnealStressUpdateTempl<is_ad>::propagateQpStatefulPropertiesRadialReturn()
 {
   _effective_inelastic_strain[_qp] = _effective_inelastic_strain_old[_qp];
 }
 
 template <bool is_ad>
 int
-RadialReturnStressUpdateTempl<is_ad>::calculateNumberSubsteps(
+RadialReturnAnnealStressUpdateTempl<is_ad>::calculateNumberSubsteps(
     const GenericRankTwoTensor<is_ad> & strain_increment)
 {
   // compute an effective elastic strain measure
@@ -182,7 +190,7 @@ RadialReturnStressUpdateTempl<is_ad>::calculateNumberSubsteps(
 
 template <bool is_ad>
 void
-RadialReturnStressUpdateTempl<is_ad>::computeTangentOperator(Real /*effective_trial_stress*/,
+RadialReturnAnnealStressUpdateTempl<is_ad>::computeTangentOperator(Real /*effective_trial_stress*/,
                                                              const RankTwoTensor & /*stress_new*/,
                                                              RankFourTensor & /*tangent_operator*/)
 {
@@ -191,7 +199,7 @@ RadialReturnStressUpdateTempl<is_ad>::computeTangentOperator(Real /*effective_tr
 
 template <>
 void
-RadialReturnStressUpdateTempl<false>::computeTangentOperator(Real effective_trial_stress,
+RadialReturnAnnealStressUpdateTempl<false>::computeTangentOperator(Real effective_trial_stress,
                                                              const RankTwoTensor & stress_new,
                                                              RankFourTensor & tangent_operator)
 {
@@ -234,7 +242,7 @@ RadialReturnStressUpdateTempl<false>::computeTangentOperator(Real effective_tria
 
 template <bool is_ad>
 void
-RadialReturnStressUpdateTempl<is_ad>::updateState(
+RadialReturnAnnealStressUpdateTempl<is_ad>::updateState(
     GenericRankTwoTensor<is_ad> & strain_increment,
     GenericRankTwoTensor<is_ad> & inelastic_strain_increment,
     const GenericRankTwoTensor<is_ad> & /*rotation_increment*/,
@@ -282,7 +290,14 @@ RadialReturnStressUpdateTempl<is_ad>::updateState(
   if (_apply_strain)
   {
     strain_increment -= inelastic_strain_increment;
-    updateEffectiveInelasticStrain(_effective_inelastic_strain_increment);
+    // updateEffectiveInelasticStrain(_effective_inelastic_strain_increment);
+    if (_anneal && _temperature[_qp] > _crit_temp)
+      // if (_effective_inelastic_strain[_qp] < 1e-4)
+      //   _effective_inelastic_strain[_qp] = 0.0;
+      // else
+      _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
+    else
+      _effective_inelastic_strain[_qp] = _effective_inelastic_strain_old[_qp] + _effective_inelastic_strain_increment;
     // Use the old elastic strain here because we require tensors used by this class
     // to be isotropic and this method natively allows for changing in time
     // elasticity tensors
@@ -305,7 +320,7 @@ RadialReturnStressUpdateTempl<is_ad>::updateState(
 
 template <bool is_ad>
 void
-RadialReturnStressUpdateTempl<is_ad>::updateStateSubstepInternal(
+RadialReturnAnnealStressUpdateTempl<is_ad>::updateStateSubstepInternal(
     GenericRankTwoTensor<is_ad> & strain_increment,
     GenericRankTwoTensor<is_ad> & inelastic_strain_increment,
     const GenericRankTwoTensor<is_ad> & rotation_increment,
@@ -403,12 +418,19 @@ RadialReturnStressUpdateTempl<is_ad>::updateStateSubstepInternal(
   stress_new = sub_stress_new;
 
   // update effective inelastic strain
-  updateEffectiveInelasticStrain(sub_effective_inelastic_strain_increment);
+  // updateEffectiveInelasticStrain(sub_effective_inelastic_strain_increment);
+  if (_anneal && _temperature[_qp] > _crit_temp)
+    // if (_effective_inelastic_strain[_qp] < 1e-4)
+    //   _effective_inelastic_strain[_qp] = 0.0;
+    // else
+    _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
+  else
+    _effective_inelastic_strain[_qp] = _effective_inelastic_strain_old[_qp] + sub_effective_inelastic_strain_increment;
 }
 
 template <bool is_ad>
 void
-RadialReturnStressUpdateTempl<is_ad>::updateStateSubstep(
+RadialReturnAnnealStressUpdateTempl<is_ad>::updateStateSubstep(
     GenericRankTwoTensor<is_ad> & strain_increment,
     GenericRankTwoTensor<is_ad> & inelastic_strain_increment,
     const GenericRankTwoTensor<is_ad> & rotation_increment,
@@ -464,7 +486,7 @@ RadialReturnStressUpdateTempl<is_ad>::updateStateSubstep(
 
 template <bool is_ad>
 Real
-RadialReturnStressUpdateTempl<is_ad>::computeReferenceResidual(
+RadialReturnAnnealStressUpdateTempl<is_ad>::computeReferenceResidual(
     const GenericReal<is_ad> & effective_trial_stress,
     const GenericReal<is_ad> & scalar_effective_inelastic_strain)
 {
@@ -474,7 +496,7 @@ RadialReturnStressUpdateTempl<is_ad>::computeReferenceResidual(
 
 template <bool is_ad>
 GenericReal<is_ad>
-RadialReturnStressUpdateTempl<is_ad>::maximumPermissibleValue(
+RadialReturnAnnealStressUpdateTempl<is_ad>::maximumPermissibleValue(
     const GenericReal<is_ad> & effective_trial_stress) const
 {
   return effective_trial_stress / _three_shear_modulus;
@@ -482,7 +504,7 @@ RadialReturnStressUpdateTempl<is_ad>::maximumPermissibleValue(
 
 template <bool is_ad>
 Real
-RadialReturnStressUpdateTempl<is_ad>::computeTimeStepLimit()
+RadialReturnAnnealStressUpdateTempl<is_ad>::computeTimeStepLimit()
 {
   const Real scalar_inelastic_strain_incr =
       std::abs(MetaPhysicL::raw_value(_effective_inelastic_strain[_qp]) -
@@ -495,7 +517,7 @@ RadialReturnStressUpdateTempl<is_ad>::computeTimeStepLimit()
 
 template <bool is_ad>
 void
-RadialReturnStressUpdateTempl<is_ad>::outputIterationSummary(std::stringstream * iter_output,
+RadialReturnAnnealStressUpdateTempl<is_ad>::outputIterationSummary(std::stringstream * iter_output,
                                                              const unsigned int total_it)
 {
   if (iter_output)
@@ -506,5 +528,5 @@ RadialReturnStressUpdateTempl<is_ad>::outputIterationSummary(std::stringstream *
   SingleVariableReturnMappingSolutionTempl<is_ad>::outputIterationSummary(iter_output, total_it);
 }
 
-template class RadialReturnStressUpdateTempl<false>;
-template class RadialReturnStressUpdateTempl<true>;
+template class RadialReturnAnnealStressUpdateTempl<false>;
+template class RadialReturnAnnealStressUpdateTempl<true>;
