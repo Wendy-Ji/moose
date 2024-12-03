@@ -22,9 +22,9 @@ ChabochePlasticityTempl<is_ad>::validParams()
   params.addParam<FunctionName>("yield_stress_function",
                                 "Yield stress as a function of temperature");
   params.addParam<Real>("yield_stress", "The point at which plastic strain begins accumulating");
-  params.addParam<FunctionName>("isotropic_hardening_function",
-                                "True stress as a function of plastic strain");
-  params.addParam<Real>("isotropic_hardening_constant", "Isotropic hardening slope");
+  // params.addParam<FunctionName>("isotropic_hardening_function",
+  //                               "True stress as a function of plastic strain");
+  // params.addParam<Real>("isotropic_hardening_constant", "Isotropic hardening slope");
   params.addCoupledVar("temperature", 0.0, "Coupled Temperature");
   params.set<std::string>("effective_inelastic_strain_name") = "effective_plastic_strain";
   // params.addParam<Real>("kinematic_hardening_modulus", 0.0, "Kinematic hardening modulus");
@@ -52,15 +52,15 @@ ChabochePlasticityTempl<is_ad>::ChabochePlasticityTempl(
                                : nullptr),
     _yield_stress(this->isParamValid("yield_stress") ? this->template getParam<Real>("yield_stress")
                                                      : 0),
-    _isotropic_hardening_constant(
-        this->isParamValid("isotropic_hardening_constant")
-            ? this->template getParam<Real>("isotropic_hardening_constant")
-            : 0),
-    _isotropic_hardening_function(this->isParamValid("isotropic_hardening_function")
-                                      ? &this->getFunction("isotropic_hardening_function")
-                                      : nullptr),
+    // _isotropic_hardening_constant(
+    //     this->isParamValid("isotropic_hardening_constant")
+    //         ? this->template getParam<Real>("isotropic_hardening_constant")
+    //         : 0),
+    // _isotropic_hardening_function(this->isParamValid("isotropic_hardening_function")
+    //                                   ? &this->getFunction("isotropic_hardening_function")
+    //                                   : nullptr),
     _yield_condition(-1.0), // set to a non-physical value to catch uninitalized yield condition
-    _isotropic_hardening_slope(0.0),
+    // _isotropic_hardening_slope(0.0),
     _plastic_strain(
         this->template declareGenericProperty<RankTwoTensor, is_ad>(_base_name + "plastic_strain")),
     _plastic_strain_old(
@@ -87,10 +87,10 @@ ChabochePlasticityTempl<is_ad>::ChabochePlasticityTempl(
         _base_name + "isotropic_hardening_variable")),
     _isotropic_hardening_variable_old(
         this->template getMaterialPropertyOld<Real>(_base_name + "isotropic_hardening_variable")),
-    _kinematic_hardening_variable(
-        this->template declareGenericProperty<Real, is_ad>("kinematic_hardening_variable")),
-    _kinematic_hardening_variable_old(
-        this->template getMaterialPropertyOld<Real>("kinematic_hardening_variable")),
+    // _kinematic_hardening_variable(
+    //     this->template declareGenericProperty<Real, is_ad>("kinematic_hardening_variable")),
+    // _kinematic_hardening_variable_old(
+    //     this->template getMaterialPropertyOld<Real>("kinematic_hardening_variable")),
     _temperature(this->template coupledGenericValue<is_ad>("temperature"))
 {
   if (parameters.isParamSetByUser("yield_stress") && _yield_stress <= 0.0)
@@ -98,15 +98,15 @@ ChabochePlasticityTempl<is_ad>::ChabochePlasticityTempl(
   // Both of these parameters are given default values by derived classes, which makes them valid
   if (_yield_stress_function == nullptr && !this->isParamValid("yield_stress"))
     mooseError("Either yield_stress or yield_stress_function must be given");
-  if (!parameters.isParamValid("isotropic_hardening_constant") &&
-      !this->isParamValid("isotropic_hardening_function"))
-    mooseError(
-        "Either isotropic_hardening_constant or isotropic_hardening_function must be defined");
-  if (parameters.isParamSetByUser("isotropic_hardening_constant") &&
-      this->isParamValid("isotropic_hardening_function"))
-    mooseError(
-        "Only the isotropic_hardening_constant or only the isotropic_hardening_function can be "
-        "defined but not both");
+  // if (!parameters.isParamValid("isotropic_hardening_constant") &&
+  //     !this->isParamValid("isotropic_hardening_function"))
+  //   mooseError(
+  //       "Either isotropic_hardening_constant or isotropic_hardening_function must be defined");
+  // if (parameters.isParamSetByUser("isotropic_hardening_constant") &&
+  //     this->isParamValid("isotropic_hardening_function"))
+  //   mooseError(
+  //       "Only the isotropic_hardening_constant or only the isotropic_hardening_function can be "
+  //       "defined but not both");
 }
 
 template <bool is_ad>
@@ -114,7 +114,7 @@ void
 ChabochePlasticityTempl<is_ad>::initQpStatefulProperties()
 {
   _isotropic_hardening_variable[_qp] = 0.0;
-  _kinematic_hardening_variable[_qp] = 0.0;
+  // _kinematic_hardening_variable[_qp] = 0.0;
   _plastic_strain[_qp].zero();
   RadialReturnBackstressStressUpdateBaseTempl<is_ad>::initQpStatefulProperties();
 }
@@ -124,7 +124,7 @@ void
 ChabochePlasticityTempl<is_ad>::propagateQpStatefulProperties()
 {
   _isotropic_hardening_variable[_qp] = _isotropic_hardening_variable_old[_qp];
-  _kinematic_hardening_variable[_qp] = _kinematic_hardening_variable_old[_qp];
+  // _kinematic_hardening_variable[_qp] = _kinematic_hardening_variable_old[_qp];
   _plastic_strain[_qp] = _plastic_strain_old[_qp];
 
   RadialReturnBackstressStressUpdateBaseTempl<is_ad>::propagateQpStatefulPropertiesRadialReturn();
@@ -154,10 +154,14 @@ ChabochePlasticityTempl<is_ad>::computeResidual(
               "the yield stress was not updated by computeStressInitialize");
   if (_yield_condition > 0.0)
   {
-    _isotropic_hardening_slope = computeIsotropicHardeningDerivative(scalar);
+    // _isotropic_hardening_slope = computeIsotropicHardeningDerivative(scalar);
     _isotropic_hardening_variable[_qp] = computeIsotropicHardeningValue(scalar);
-    _kinematic_hardening_variable[_qp] = computeKinematicHardeningValue(scalar);
-    GenericReal<is_ad> residual = (effective_trial_stress - _kinematic_hardening_variable[_qp] -
+    // _kinematic_hardening_variable[_qp] = computeKinematicHardeningValue(scalar);
+    // GenericReal<is_ad> residual = (effective_trial_stress - _kinematic_hardening_variable[_qp] -
+    //                                _isotropic_hardening_variable[_qp] - _yield_stress) /
+    //                                   _three_shear_modulus -
+    //                               scalar;
+    GenericReal<is_ad> residual = (effective_trial_stress -
                                    _isotropic_hardening_variable[_qp] - _yield_stress) /
                                       _three_shear_modulus -
                                   scalar;
@@ -172,7 +176,8 @@ ChabochePlasticityTempl<is_ad>::computeDerivative(
     const GenericReal<is_ad> & /*effective_trial_stress*/, const GenericReal<is_ad> & /*scalar*/)
 {
   if (_yield_condition > 0.0)
-    return -1.0 - _isotropic_hardening_slope / _three_shear_modulus;
+    // return -1.0 - _isotropic_hardening_slope / _three_shear_modulus;
+    return -1.0;
   return 1.0;
 }
 
@@ -184,7 +189,7 @@ ChabochePlasticityTempl<is_ad>::iterationFinalize(
   if (_yield_condition > 0.0)
   {
     _isotropic_hardening_variable[_qp] = computeIsotropicHardeningValue(scalar);
-    _kinematic_hardening_variable[_qp] = computeKinematicHardeningValue(scalar);
+    // _kinematic_hardening_variable[_qp] = computeKinematicHardeningValue(scalar);
   }
 }
 
@@ -204,10 +209,14 @@ ChabochePlasticityTempl<is_ad>::computeStressFinalize(
   _gamma1 = _gamma1_function->value(_temperature[_qp], p);
   _gamma2 = _gamma2_function->value(_temperature[_qp], p);
 
-  this->_backstress[_qp] =
-      this->_backstress_old[_qp] +
-      (2.0 / 3.0) * _C1 * plastic_strain_increment -
-      _gamma1 * this->_backstress[_qp] * this->_effective_inelastic_strain_increment + (2.0 / 3.0) * _C2 * plastic_strain_increment - _gamma2 * this->_backstress[_qp] * this->_effective_inelastic_strain_increment;
+  this->_backstress1[_qp] =
+    this->_backstress1_old[_qp] +
+    (2.0 / 3.0) * _C1 * plastic_strain_increment -
+    _gamma1 * this->_backstress1[_qp] * this->_effective_inelastic_strain_increment;
+  this->_backstress2[_qp] =
+    this->_backstress2_old[_qp] +
+    (2.0 / 3.0) * _C2 * plastic_strain_increment -
+    _gamma2 * this->_backstress2[_qp] * this->_effective_inelastic_strain_increment;
 }
 
 template <bool is_ad>
@@ -222,45 +231,45 @@ ChabochePlasticityTempl<is_ad>::computeIsotropicHardeningValue(
   _q = _q_function->value(_temperature[_qp], p);
   _b = _b_function->value(_temperature[_qp], p);
 
-  if (_isotropic_hardening_function)
-  {
-    const Real strain_old = this->_effective_inelastic_strain_old[_qp];
-    return _isotropic_hardening_function->value(strain_old + scalar) - _yield_stress;
-  }
+  // if (_isotropic_hardening_function)
+  // {
+  //   const Real strain_old = this->_effective_inelastic_strain_old[_qp];
+  //   return _isotropic_hardening_function->value(strain_old + scalar) - _yield_stress;
+  // }
 
   _isotropic_hardening_variable[_qp] = _q * (1.0 - std::exp(-_b * scalar));
 
-  return (_isotropic_hardening_variable_old[_qp] + _isotropic_hardening_slope * scalar +
+  // return (_isotropic_hardening_variable_old[_qp] + _isotropic_hardening_slope * scalar +
+  //         _b * (_q - _isotropic_hardening_variable_old[_qp]) *
+  //             this->_effective_inelastic_strain_increment);
+  return (_isotropic_hardening_variable_old[_qp] +
           _b * (_q - _isotropic_hardening_variable_old[_qp]) *
               this->_effective_inelastic_strain_increment);
 }
 
-template <bool is_ad>
-GenericReal<is_ad>
-ChabochePlasticityTempl<is_ad>::computeIsotropicHardeningDerivative(
-    const GenericReal<is_ad> & /*scalar*/)
-{
-  if (_isotropic_hardening_function)
-  {
-    const Real strain_old = this->_effective_inelastic_strain_old[_qp];
-    return _isotropic_hardening_function->timeDerivative(strain_old);
-  }
-  return _isotropic_hardening_constant;
-}
+// template <bool is_ad>
+// GenericReal<is_ad>
+// ChabochePlasticityTempl<is_ad>::computeIsotropicHardeningDerivative(
+//     const GenericReal<is_ad> & /*scalar*/)
+// {
+//   if (_isotropic_hardening_function)
+//   {
+//     const Real strain_old = this->_effective_inelastic_strain_old[_qp];
+//     return _isotropic_hardening_function->timeDerivative(strain_old);
+//   }
+//   return _isotropic_hardening_constant;
+// }
 
-template <bool is_ad>
-GenericReal<is_ad>
-ChabochePlasticityTempl<is_ad>::computeKinematicHardeningValue(
-    const GenericReal<is_ad> & scalar)
-{
-  static const Moose::GenericType<Point, is_ad> p;
-  _C1 = _C1_function->value(_temperature[_qp], p);
-  _C2 = _C2_function->value(_temperature[_qp], p);
-  _kinematic_hardening_variable[_qp] = (_C1 +_C2) * scalar;
+// template <bool is_ad>
+// GenericReal<is_ad>
+// ChabochePlasticityTempl<is_ad>::computeKinematicHardeningValue(
+//     const GenericReal<is_ad> & scalar)
+// {
+//   // _kinematic_hardening_variable[_qp] = _kinematic_hardening_modulus * scalar;
+//   // return _kinematic_hardening_variable[_qp];
 
-  // _kinematic_hardening_variable[_qp] = _kinematic_hardening_modulus * scalar;
-  return _kinematic_hardening_variable[_qp];
-}
+//   return 0;
+// }
 
 template <bool is_ad>
 void

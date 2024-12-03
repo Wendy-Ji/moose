@@ -16,7 +16,15 @@ RadialReturnBackstressStressUpdateBaseTempl<is_ad>::RadialReturnBackstressStress
     _backstress(this->template declareGenericProperty<RankTwoTensor, is_ad>(this->_base_name +
                                                                             "backstress")),
     _backstress_old(
-        this->template getMaterialPropertyOld<RankTwoTensor>(this->_base_name + "backstress"))
+        this->template getMaterialPropertyOld<RankTwoTensor>(this->_base_name + "backstress")),
+    _backstress1(this->template declareGenericProperty<RankTwoTensor, is_ad>(this->_base_name +
+                                                                             "backstress1")),
+    _backstress1_old(
+        this->template getMaterialPropertyOld<RankTwoTensor>(this->_base_name + "backstress1")),
+    _backstress2(this->template declareGenericProperty<RankTwoTensor, is_ad>(this->_base_name +
+                                                                              "backstress2")), 
+    _backstress2_old(
+        this->template getMaterialPropertyOld<RankTwoTensor>(this->_base_name + "backstress2")) 
 {
 }
 
@@ -25,6 +33,8 @@ void
 RadialReturnBackstressStressUpdateBaseTempl<is_ad>::initQpStatefulProperties()
 {
   _backstress[_qp].zero();
+  _backstress1[_qp].zero();
+  _backstress2[_qp].zero();
   RadialReturnStressUpdateTempl<is_ad>::initQpStatefulProperties();
 }
 
@@ -33,6 +43,8 @@ void
 RadialReturnBackstressStressUpdateBaseTempl<is_ad>::propagateQpStatefulProperties()
 {
   _backstress[_qp] = _backstress_old[_qp];
+  _backstress1[_qp] = _backstress1_old[_qp];
+  _backstress2[_qp] = _backstress2_old[_qp];
   propagateQpStatefulPropertiesRadialReturn();
 }
 
@@ -49,7 +61,8 @@ RadialReturnBackstressStressUpdateBaseTempl<is_ad>::updateState(
     bool compute_full_tangent_operator,
     RankFourTensor & tangent_operator)
 {
-  GenericRankTwoTensor<is_ad> stress_corrected = stress_new - _backstress_old[_qp];
+  // GenericRankTwoTensor<is_ad> stress_corrected = stress_new - _backstress_old[_qp];
+  GenericRankTwoTensor<is_ad> stress_corrected = stress_new - _backstress1_old[_qp] - _backstress2_old[_qp];
 
   RadialReturnStressUpdateTempl<is_ad>::updateState(strain_increment,
                                                     inelastic_strain_increment,

@@ -28,6 +28,11 @@ protected:
 
   GenericMaterialProperty<RankTwoTensor, is_ad> & _backstress;
   const MaterialProperty<RankTwoTensor> & _backstress_old;
+
+  GenericMaterialProperty<RankTwoTensor, is_ad> & _backstress1;
+  const MaterialProperty<RankTwoTensor> & _backstress1_old;
+  GenericMaterialProperty<RankTwoTensor, is_ad> & _backstress2;
+  const MaterialProperty<RankTwoTensor> & _backstress2_old;
 };
 
 typedef RadialReturnBackstressStressUpdateBaseTempl<false> RadialReturnBackstressStressUpdateBase;

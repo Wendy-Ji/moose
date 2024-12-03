@@ -38,16 +38,16 @@ protected:
   virtual void iterationFinalize(const GenericReal<is_ad> & scalar) override;
 
   virtual GenericReal<is_ad> computeIsotropicHardeningValue(const GenericReal<is_ad> & scalar);
-  virtual GenericReal<is_ad> computeIsotropicHardeningDerivative(const GenericReal<is_ad> & scalar);
-  virtual GenericReal<is_ad> computeKinematicHardeningValue(const GenericReal<is_ad> & scalar);
+  // virtual GenericReal<is_ad> computeIsotropicHardeningDerivative(const GenericReal<is_ad> & scalar);
+  // virtual GenericReal<is_ad> computeKinematicHardeningValue(const GenericReal<is_ad> & scalar);
 
   const Function * _yield_stress_function;
   GenericReal<is_ad> _yield_stress;
-  const Real _isotropic_hardening_constant;
-  const Function * const _isotropic_hardening_function;
+  // const Real _isotropic_hardening_constant;
+  // const Function * const _isotropic_hardening_function;
 
   GenericReal<is_ad> _yield_condition;
-  GenericReal<is_ad> _isotropic_hardening_slope;
+  // GenericReal<is_ad> _isotropic_hardening_slope;
   GenericReal<is_ad> _kinematic_hardening_slope;
   GenericRankTwoTensor<is_ad> stress_new;
   GenericRankTwoTensor<is_ad> elastic_strain_old;
@@ -84,8 +84,8 @@ protected:
 
   GenericMaterialProperty<Real, is_ad> & _isotropic_hardening_variable;
   const MaterialProperty<Real> & _isotropic_hardening_variable_old;
-  GenericMaterialProperty<Real, is_ad> & _kinematic_hardening_variable;
-  const MaterialProperty<Real> & _kinematic_hardening_variable_old;
+  // GenericMaterialProperty<Real, is_ad> & _kinematic_hardening_variable;
+  // const MaterialProperty<Real> & _kinematic_hardening_variable_old;
   const GenericVariableValue<is_ad> & _temperature;
 };
 
