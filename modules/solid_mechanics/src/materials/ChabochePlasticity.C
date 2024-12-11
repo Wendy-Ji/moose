@@ -174,6 +174,7 @@ template <bool is_ad>
 GenericReal<is_ad>
 ChabochePlasticityTempl<is_ad>::computeDerivative(
     const GenericReal<is_ad> & /*effective_trial_stress*/, const GenericReal<is_ad> & /*scalar*/)
+
 {
   if (_yield_condition > 0.0)
     // return -1.0 - _isotropic_hardening_slope / _three_shear_modulus;
@@ -267,8 +268,6 @@ ChabochePlasticityTempl<is_ad>::computeIsotropicHardeningValue(
 // {
 //   // _kinematic_hardening_variable[_qp] = _kinematic_hardening_modulus * scalar;
 //   // return _kinematic_hardening_variable[_qp];
-
-//   return 0;
 // }
 
 template <bool is_ad>

@@ -264,6 +264,12 @@ protected:
 
   /// original timestep (to be restored after substepping is completed)
   Real _dt_original;
+
+  // annealing
+  const GenericVariableValue<is_ad> & _temperature;
+  const bool _anneal;
+  const Real _crit_temp;
+  const Real _anneal_rate;
 };
 
 typedef RadialReturnStressUpdateTempl<false> RadialReturnStressUpdate;
