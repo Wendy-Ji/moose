@@ -303,7 +303,8 @@ RadialReturnStressUpdateTempl<is_ad>::updateState(
     strain_increment -= inelastic_strain_increment;
     // updateEffectiveInelasticStrain(_effective_inelastic_strain_increment);
     if (_anneal && _temperature[_qp] > _crit_temp)
-      _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
+      // _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
+      _effective_inelastic_strain[_qp] = 0.0;
     else
       _effective_inelastic_strain[_qp] = _effective_inelastic_strain_old[_qp] + _effective_inelastic_strain_increment;
     // Use the old elastic strain here because we require tensors used by this class
@@ -429,7 +430,8 @@ RadialReturnStressUpdateTempl<is_ad>::updateStateSubstepInternal(
   // updateEffectiveInelasticStrain(sub_effective_inelastic_strain_increment);
 
   if (_anneal && _temperature[_qp] > _crit_temp)
-    _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
+    // _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
+    _effective_inelastic_strain[_qp] = 0.0;
   else
     _effective_inelastic_strain[_qp] = _effective_inelastic_strain_old[_qp] + sub_effective_inelastic_strain_increment;
 }

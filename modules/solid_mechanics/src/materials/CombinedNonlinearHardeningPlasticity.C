@@ -132,13 +132,13 @@ CombinedNonlinearHardeningPlasticityTempl<is_ad>::computeResidual(
     _isotropic_hardening_slope = computeIsotropicHardeningDerivative(scalar);
     _isotropic_hardening_variable[_qp] = computeIsotropicHardeningValue(scalar);
     _kinematic_hardening_variable[_qp] = computeKinematicHardeningValue(scalar);
-    // GenericReal<is_ad> residual = (effective_trial_stress - _kinematic_hardening_variable[_qp] -
-    //                                _isotropic_hardening_variable[_qp] - _yield_stress) /
-    //                                   _three_shear_modulus -
-    //                               scalar;
     GenericReal<is_ad> residual = (effective_trial_stress - _kinematic_hardening_variable[_qp] -
                                    _isotropic_hardening_variable[_qp] - _yield_stress) /
-                                      (_three_shear_modulus*0.1) - scalar;   
+                                      _three_shear_modulus -
+                                  scalar;
+    // GenericReal<is_ad> residual = (effective_trial_stress - _kinematic_hardening_variable[_qp] -
+    //                                _isotropic_hardening_variable[_qp] - _yield_stress) /
+    //                                   (_three_shear_modulus*0.1) - scalar;   
     return residual;
   }
   return 0.0;
@@ -216,8 +216,8 @@ GenericReal<is_ad>
 CombinedNonlinearHardeningPlasticityTempl<is_ad>::computeKinematicHardeningValue(
     const GenericReal<is_ad> & scalar)
 {
-  // _kinematic_hardening_variable[_qp] = _kinematic_hardening_modulus * scalar;
-  _kinematic_hardening_variable[_qp] = _three_shear_modulus * scalar;
+  _kinematic_hardening_variable[_qp] = _kinematic_hardening_modulus * scalar;
+  // _kinematic_hardening_variable[_qp] = _three_shear_modulus * scalar;
   return _kinematic_hardening_variable[_qp];
   // return 0;
 }
