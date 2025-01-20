@@ -66,6 +66,10 @@ RadialReturnStressUpdateTempl<is_ad>::validParams()
   params.addParam<unsigned>("maximum_number_substeps",
                             25,
                             "The maximum number of substeps allowed before cutting the time step.");
+  params.addCoupledVar("temperature", 0.0, "Coupled Temperature");
+  params.addParam<bool>("anneal", false, "Whether to anenal effective_inelastic_strain");
+  params.addParam<Real>("crit_temp", 1e6, "Critical temperature for annealing");
+  params.addParam<Real>("anneal_rate", 0.5, "Annealing rate");
   return params;
 }
 
@@ -90,7 +94,11 @@ RadialReturnStressUpdateTempl<is_ad>::RadialReturnStressUpdateTempl(
     _use_substepping(
         this->template getParam<MooseEnum>("use_substepping").template getEnum<SubsteppingType>()),
     _adaptive_substepping(this->template getParam<bool>("adaptive_substepping")),
-    _maximum_number_substeps(this->template getParam<unsigned>("maximum_number_substeps"))
+    _maximum_number_substeps(this->template getParam<unsigned>("maximum_number_substeps")),
+    _temperature(this->template coupledGenericValue<is_ad>("temperature")),
+    _anneal(this->template getParam<bool>("anneal")),
+    _crit_temp(this->template getParam<Real>("crit_temp")),
+    _anneal_rate(this->template getParam<Real>("anneal_rate"))
 {
   if (this->_pars.isParamSetByUser("use_substep"))
   {
@@ -282,7 +290,11 @@ RadialReturnStressUpdateTempl<is_ad>::updateState(
   if (_apply_strain)
   {
     strain_increment -= inelastic_strain_increment;
-    updateEffectiveInelasticStrain(_effective_inelastic_strain_increment);
+    // updateEffectiveInelasticStrain(_effective_inelastic_strain_increment);
+    if (_anneal && _temperature[_qp] > _crit_temp)
+      _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
+    else
+      updateEffectiveInelasticStrain(_effective_inelastic_strain_increment);
 
     // Use the old elastic strain here because we require tensors used by this class
     // to be isotropic and this method natively allows for changing in time
@@ -404,7 +416,11 @@ RadialReturnStressUpdateTempl<is_ad>::updateStateSubstepInternal(
   stress_new = sub_stress_new;
 
   // update effective inelastic strain
-  updateEffectiveInelasticStrain(sub_effective_inelastic_strain_increment);
+  // updateEffectiveInelasticStrain(sub_effective_inelastic_strain_increment);
+  if (_anneal && _temperature[_qp] > _crit_temp)
+    _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
+  else
+    updateEffectiveInelasticStrain(sub_effective_inelastic_strain_increment);
 }
 
 template <bool is_ad>
