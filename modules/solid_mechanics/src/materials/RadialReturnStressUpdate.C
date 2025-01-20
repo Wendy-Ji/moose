@@ -303,10 +303,11 @@ RadialReturnStressUpdateTempl<is_ad>::updateState(
     strain_increment -= inelastic_strain_increment;
     // updateEffectiveInelasticStrain(_effective_inelastic_strain_increment);
     if (_anneal && _temperature[_qp] > _crit_temp)
-      // _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
-      _effective_inelastic_strain[_qp] = 0.0;
+      _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
     else
-      _effective_inelastic_strain[_qp] = _effective_inelastic_strain_old[_qp] + _effective_inelastic_strain_increment;
+      // _effective_inelastic_strain[_qp] = _effective_inelastic_strain_old[_qp] + _effective_inelastic_strain_increment;
+      updateEffectiveInelasticStrain(_effective_inelastic_strain_increment);
+      
     // Use the old elastic strain here because we require tensors used by this class
     // to be isotropic and this method natively allows for changing in time
     // elasticity tensors
@@ -430,10 +431,11 @@ RadialReturnStressUpdateTempl<is_ad>::updateStateSubstepInternal(
   // updateEffectiveInelasticStrain(sub_effective_inelastic_strain_increment);
 
   if (_anneal && _temperature[_qp] > _crit_temp)
-    // _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
-    _effective_inelastic_strain[_qp] = 0.0;
+    _effective_inelastic_strain[_qp] = _anneal_rate*_effective_inelastic_strain_old[_qp];
+    // _effective_inelastic_strain[_qp] = 0.0;
   else
-    _effective_inelastic_strain[_qp] = _effective_inelastic_strain_old[_qp] + sub_effective_inelastic_strain_increment;
+    updateEffectiveInelasticStrain(sub_effective_inelastic_strain_increment);
+    // _effective_inelastic_strain[_qp] = _effective_inelastic_strain_old[_qp] + sub_effective_inelastic_strain_increment;
 }
 
 template <bool is_ad>
