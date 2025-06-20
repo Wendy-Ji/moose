@@ -211,6 +211,15 @@ NEML2ModelExecutor::initialize()
 }
 
 void
+NEML2ModelExecutor::meshChanged()
+{
+  if (!NEML2Utils::shouldCompute(_fe_problem))
+    return;
+
+  _output_ready = false;
+}
+
+void
 NEML2ModelExecutor::execute()
 {
   if (!NEML2Utils::shouldCompute(_fe_problem))

@@ -36,6 +36,7 @@ public:
   void finalize() override {}
 #else
   void initialize() override;
+  void meshChanged() override;
   void execute() override;
   void finalize() override {}
 
